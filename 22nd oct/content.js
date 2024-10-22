@@ -1,20 +1,50 @@
-var scrollingIntervalId; // Declare this globally to keep track of the interval ID
-var isScrolling = false;
-var isCodeInjected = false;
+// Global variables to track scrolling state and interval ID
+let scrollingIntervalId = null;
+let isCodeInjected = false;
+
+let inactivityTimer; // Timer variable
+const inactivityDelay = 5000; // 5 seconds of inactivity
 
 // Function to scroll the frame or window based on stored settings
 function scrollFrame(frameClass, scrollStep) {
-  let frame = frameClass;
-  if (frame !== "window") {
+  let frame;
+  if (frameClass === "window") {
+    // Handle scrolling for the window
+    frame = window;
+  } else {
+    // Handle scrolling for a specific frame
     frame = document.querySelector(frameClass);
-    const totalHeight = frame.scrollHeight;
-    const currentPosition = frame.scrollTop + frame.clientHeight;
+  }
 
-    console.log("Scrolling in Progress")
+  const totalHeight =
+    frame === window ? document.body.scrollHeight : frame.scrollHeight;
+  const currentPosition =
+    frame === window
+      ? window.scrollY + window.innerHeight
+      : frame.scrollTop + frame.clientHeight;
 
-    if (currentPosition + scrollStep < totalHeight - 100) {
+  // console.log("Scrolling in Progress");
+
+  if (currentPosition + scrollStep < totalHeight - 100) {
+    // Scroll down
+    if (frame === window) {
+      window.scrollBy({
+        top: scrollStep,
+        left: 0,
+        behavior: "smooth",
+      });
+    } else {
       frame.scrollBy({
         top: scrollStep,
+        left: 0,
+        behavior: "smooth",
+      });
+    }
+  } else {
+    // Scroll to top
+    if (frame === window) {
+      window.scrollTo({
+        top: 0,
         left: 0,
         behavior: "smooth",
       });
@@ -24,134 +54,148 @@ function scrollFrame(frameClass, scrollStep) {
         left: 0,
         behavior: "smooth",
       });
-
-      clearInterval(scrollingIntervalId);
-
-      // Notify the background script to switch tabs
-      chrome.runtime.sendMessage({ action: "scrollComplete" });
     }
+
+    clearInterval(scrollingIntervalId);
+
+    // Notify the background script to switch tabs
+    chrome.runtime.sendMessage({ action: "scrollComplete" });
   }
-  //Else will the condition for window scrolling
 }
 
-// returns sync data
+// Function to update the scrolling state in storage
+async function updateScrollingStateInStorage(state) {
+  await chrome.storage.sync.set({ isScrolling: state });
+}
+
+// Function to update the visibility state in storage
+async function updateVisibilityStateInStorage(state) {
+  await chrome.storage.sync.set({ isInView: state });
+}
+
+// Function to get data from chrome.storage.sync
 async function getDataFromSync() {
-  const result = await new Promise((resolve, reject) => {
-    chrome.storage.sync.get(["scrollPixels", "intervalTime", "links"], (data) => {
-      if (data) {
-        resolve(data);
-      } else {
-        reject('No data found');
+  return new Promise((resolve, reject) => {
+    chrome.storage.sync.get(
+      ["scrollPixels", "intervalTime", "links", "isScrolling", "isInView"],
+      (data) => {
+        if (data) {
+          resolve(data);
+        } else {
+          reject("No data found");
+        }
       }
-    });
+    );
   });
-  return result;
 }
 
-function startScrollingWithClassNameScrollStepInterval(classNameOfCurrentTab, scrollStep, interval) {
-  scrollingIntervalId = setInterval(() => {
+function startScrollingWithClassNameScrollStepInterval(
+  classNameOfCurrentTab,
+  scrollStep,
+  interval
+) {
+  return setInterval(() => {
     scrollFrame(classNameOfCurrentTab, scrollStep);
   }, interval * 1000);
 }
 
+// Get the class name for the current tab
 async function getCurrentTabsClassName() {
-  const allDataFromSync = await getDataFromSync()
+  const allDataFromSync = await getDataFromSync();
   const links = allDataFromSync.links;
-  let classNameOfCurrentTab;
 
-  for (let i = 0; i < links.length; i++) {
-    if (links[i].link === window.location.href) {
-      classNameOfCurrentTab = links[i].className;
-      return classNameOfCurrentTab;
+  for (const linkObj of links) {
+    if (linkObj.link === window.location.href) {
+      return linkObj.className;
     }
   }
-  return ""
+  return "";
 }
 
-async function scrollStartLogic() {
-  if (!isScrolling) {
+// Logic to start scrolling
+// async function scrollStartLogic() {
+//   const allDataFromSync = await getDataFromSync();
+//   const currentScrollingState = allDataFromSync.isScrolling;
 
-    isScrolling = true
-    console.log("Scrolling Started")
+//   if (!currentScrollingState) {
+//     await updateScrollingStateInStorage(true); // Update in storage
+//     // console.log("Scrolling Started");
 
-    const allDataFromSync = await getDataFromSync();
-    const scrollStep = allDataFromSync.scrollPixels;
-    const interval = allDataFromSync.intervalTime;
-    const classNameOfCurrentTab = await getCurrentTabsClassName()
+//     const { scrollPixels, intervalTime } = allDataFromSync;
+//     const classNameOfCurrentTab = await getCurrentTabsClassName();
 
-    startScrollingWithClassNameScrollStepInterval(classNameOfCurrentTab, scrollStep, interval);
-  }
-  else {
-    console.log("Scrolling already in progress")
-  }
-}
+//     startScrollingWithClassNameScrollStepInterval(
+//       classNameOfCurrentTab,
+//       scrollPixels,
+//       intervalTime
+//     );
+//   } else {
+//     // console.log("Scrolling already in progress");
+//   }
+// }
 
-async function scrollStopLogic() {
-  if (isScrolling) {
-    isScrolling = false
-    if (scrollingIntervalId) {
-      clearInterval(scrollingIntervalId); // Clear the interval to stop scrolling
-      scrollingIntervalId = null; // Reset the interval ID
-      console.log("Scrolling stopped.");
-    }
-  }
-  else {
-    console.log("Already Stopped Scrolling")
-  }
-}
+// Logic to stop scrolling
+// async function scrollStopLogic() {
+//   const allDataFromSync = await getDataFromSync();
+//   const currentScrollingState = allDataFromSync.isScrolling;
 
+//   if (currentScrollingState) {
+//     await updateScrollingStateInStorage(false); // Update in storage
+//     clearInterval(scrollingIntervalId);
+//     scrollingIntervalId = null;
+//     // console.log("Scrolling stopped.");
+//   } else {
+//     // console.log("Already Stopped Scrolling");
+//   }
+// }
+
+// Update input fields with values from storage
 async function updateChangesInAllTabs() {
-  // chrome.runtime.sendMessage({ action: "updatechangesinalltabs" });
-  const infoElement = document.getElementById('info-message');
+  const infoElement = document.getElementById("info-message");
   try {
+    const { intervalTime, scrollPixels, isScrolling } = await getDataFromSync();
 
-    const scrollIntervalElement = document.getElementById('scroll-interval-input');
-    const scrollDistanceElement = document.getElementById('scroll-distance-input');
-
-    const data = await getDataFromSync();
-
-    scrollIntervalElement.value = data['intervalTime']
-    scrollDistanceElement.value = data['scrollPixels']
-  }
-  catch {
-    infoElement.innerText = "Reload is Required"
+    document.getElementById("scroll-interval-input").value = intervalTime;
+    document.getElementById("scroll-distance-input").value = scrollPixels;
+  } catch {
+    infoElement.innerText = "Reload is Required";
   }
 }
 
+// Check if the current tab's URL is in the stored links
 async function checkIfCurrentTabInLinks() {
-  const allDataFromSync = await getDataFromSync()
+  const allDataFromSync = await getDataFromSync();
   const links = allDataFromSync.links;
 
-  for (let i = 0; i < links.length; i++) {
-    if (links[i].link === window.location.href) {
-      return true
-    }
-  }
-  return false
+  return links.some((linkObj) => linkObj.link === window.location.href);
 }
 
+// Logic to handle tab visibility changes
 async function onTabVisible() {
-  if (!document.hidden) {
-    // Your function to invoke when tab is in current view
-    // console.log("Tab is in current view");
-
-    const isCurrentTabInLinks = await checkIfCurrentTabInLinks()
-
-    if (isCurrentTabInLinks) {
-      await injectControlPanelInTab();
-      await updateChangesInAllTabs();
+  if (document.hidden) {
+    // If the tab is hidden, stop scrolling and clear the interval
+    // console.log("Tab is hidden scrolling stopped");
+    if (scrollingIntervalId) {
+      await stopScrolling(); // Ensure to stop scrolling
     }
+  }
+
+  const isCurrentTabInLinks = await checkIfCurrentTabInLinks();
+  if (isCurrentTabInLinks) {
+    await injectControlPanelInTab();
+    await updateChangesInAllTabs();
   }
 }
 
+// Inject the control panel into the current tab
 async function injectControlPanelInTab() {
-  console.log("This Tab is in View")
-  controlPanelScript();
-  console.log("Code Injected")
+  await controlPanelScript();
+  await onStartFunction();
 }
 
+// Function to create and add the control panel to the DOM
 async function addControlPanel() {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.innerHTML = `
   <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet" />
   <style>
@@ -174,7 +218,7 @@ async function addControlPanel() {
           transition: all 0.5s ease;
           width: 230px;
       }
-      #start-stop-btn {
+      #start-btn {
           background-color: #87ca02;
           cursor: pointer;
           padding: 10px 20px;
@@ -184,8 +228,22 @@ async function addControlPanel() {
           transition: all 0.2s;
           font-weight: 700;
       }
-      #start-stop-btn:hover {
+      #stop-btn{
+          background-color: #c22727;
+          cursor: pointer;
+          padding: 10px 20px;
+          font-size: 16px;
+          border: 0px;
+          border-radius: 5px;
+          transition: all 0.2s;
+          font-weight: 700;
+      }
+      #start-btn:hover {
           background-color: #6b9713;
+          color: white;
+      }
+      #stop-btn:hover {
+          background-color: #ad1a1a;
           color: white;
       }
           
@@ -199,7 +257,6 @@ async function addControlPanel() {
           justify-content: space-between;
           align-items: center;
           gap: 5px;
-
       }
       #hide-show-button {
           position: absolute;
@@ -271,10 +328,13 @@ async function addControlPanel() {
           text-align: center;
           opacity:0;
       }
+      #twoarrows{
+      font-size:20px;
+      }
   </style>
     <div id="control-panel-for-scroll">
       <div class="arrowbox" id="hide-show-button">
-          <i class="ri-arrow-right-double-line" id="arrow"></i>
+          <span id="twoarrows">&gt;&gt;</span>
       </div>
       <button id="refresh-button">Refresh Tabs
           <i class="ri-reset-right-line"></i>
@@ -292,171 +352,187 @@ async function addControlPanel() {
           <button id="save-button">Save</button>
       </div>
       <div id="info-message">Info</div>
-      <button id="start-stop-btn">Start Scrolling</button>
+      <div class="flex">
+      <button id="start-btn">Start</button>
+      <button id="stop-btn">Stop</button>
+      </div>
     </div>
-  `;
-
+  `; // Keep the existing HTML structure
   document.body.appendChild(div);
-
 }
 
-async function alertUser(alertMessage,timeOfView = 3){
-  const infoElement = document.getElementById('info-message');
-
+// Function to alert the user with a message for a specified duration
+async function alertUser(alertMessage, timeOfView = 3) {
+  const infoElement = document.getElementById("info-message");
   infoElement.innerText = alertMessage;
-  infoElement.style.opacity = '100';
+  infoElement.style.opacity = "100";
 
-  const infoTimeOut = setTimeout(() => {
-    infoElement.innerText = 'Info';
-    infoElement.style.opacity = '0';
-  }, timeOfView * 1000)
-
+  setTimeout(() => {
+    infoElement.innerText = "Info";
+    infoElement.style.opacity = "0";
+  }, timeOfView * 1000);
 }
 
+// Control panel script to handle interactions and update values
 async function controlPanelScript() {
-  if (!document.querySelector('#control-panel-for-scroll')) {
-
-    await addControlPanel()
+  if (!document.querySelector("#control-panel-for-scroll")) {
+    await addControlPanel();
 
     const allDataFromSync = await getDataFromSync();
-    const scrollIntervalFromSync = allDataFromSync.intervalTime;
-    const scrollDistanceFromSync = allDataFromSync.scrollPixels;
+    const scrollIntervalElement = document.getElementById(
+      "scroll-interval-input"
+    );
+    const scrollDistanceElement = document.getElementById(
+      "scroll-distance-input"
+    );
 
-    const hideorshowbutton = document.getElementById("hide-show-button");
-    const controlpanel = document.getElementById("control-panel-for-scroll");
-    const arrow = document.getElementById("arrow");
+    scrollIntervalElement.value = allDataFromSync.intervalTime;
+    scrollDistanceElement.value = allDataFromSync.scrollPixels;
 
-    const startStopButton = document.getElementById('start-stop-btn');
-    const refreshButtonElement = document.getElementById('refresh-button');
-
-    const scrollIntervalElement = document.getElementById('scroll-interval-input');
-    const scrollDistanceElement = document.getElementById('scroll-distance-input');
-
-    let isInView = false;
-
-    //Assigned Value from Sync to Input Field
-    scrollIntervalElement.value = scrollIntervalFromSync;
-    scrollDistanceElement.value = scrollDistanceFromSync;
-
-
-    //Selected Button elements
-    const saveButtonElement = document.getElementById('save-button');
-    const resetButtonElement = document.getElementById('reset-button');
-
-    const infoElement = document.getElementById('info-message');
-
-    //if the value of any of the field is changed, change the value in Sync
-    saveButtonElement.addEventListener('click', async () => {
-
-      const ValueOfScrollInterval = parseFloat(scrollIntervalElement.value);
-      const ValueOfScrollDistance = parseFloat(scrollDistanceElement.value);
-
-      if (scrollDistanceFromSync !== ValueOfScrollDistance || scrollIntervalFromSync !== ValueOfScrollInterval) {
-        if (ValueOfScrollInterval > 0) {
-          const result = await new Promise((resolve, reject) => {
-            chrome.storage.sync.set({
-              scrollPixels: ValueOfScrollDistance,
-              intervalTime: ValueOfScrollInterval,
-            },
-              () => {
-                resolve("Changed")
-              }
+    // Event listeners for buttons
+    document
+      .getElementById("save-button")
+      .addEventListener("click", async () => {
+        const newInterval = parseFloat(scrollIntervalElement.value);
+        const newDistance = parseFloat(scrollDistanceElement.value);
+        if (newInterval > 0) {
+          if (
+            newDistance !== allDataFromSync.scrollPixels ||
+            newInterval !== allDataFromSync.intervalTime
+          ) {
+            await chrome.storage.sync.set({
+              scrollPixels: newDistance,
+              intervalTime: newInterval,
+            });
+            await alertUser(
+              `Settings saved: Distance: ${newDistance}, Interval: ${newInterval}`
             );
-          });
-          const data = await getDataFromSync()
-          await alertUser(String(result + ' Scroll Distance : ' + data['scrollPixels'] + ' & Scroll Interval : ' + data['intervalTime']))
-        }
-        else{
-          await alertUser('Please Enter Positive Value')
-        }
-      }
-      else{
-        await alertUser('No Changes Made')
-      }
-    })
-
-    resetButtonElement.addEventListener('click', async () => {
-      const result = await new Promise((resolve, reject) => {
-        chrome.storage.sync.set({
-          scrollPixels: 500,
-          intervalTime: 10,
-        },
-          () => {
-            resolve("Values are Resetted to default")
+          } else {
+            await alertUser("No Changes Made");
           }
-        );
+        } else {
+          await alertUser("Please Enter Positive Value");
+        }
       });
 
-      const data = await getDataFromSync()
+    document
+      .getElementById("reset-button")
+      .addEventListener("click", async () => {
+        await chrome.storage.sync.set({ scrollPixels: 500, intervalTime: 10 });
+        const data = await getDataFromSync();
+        await alertUser(
+          `Values reset to default: Distance: ${data.scrollPixels}, Interval: ${data.intervalTime}`
+        );
+        scrollIntervalElement.value = data.intervalTime;
+        scrollDistanceElement.value = data.scrollPixels;
+      });
 
-      await alertUser(String(result + ' Distance : ' + data['scrollPixels'] + ' Interval : ' + data['intervalTime']))
-
-      scrollIntervalElement.value = data['intervalTime']
-      scrollDistanceElement.value = data['scrollPixels']
-    })
-
-    refreshButtonElement.addEventListener('click', () => {
+    document.getElementById("refresh-button").addEventListener("click", () => {
       chrome.runtime.sendMessage({ action: "loadTabs" });
-    })
+    });
 
-    hideorshowbutton.addEventListener('click', () => {
+    const hideShowButton = document.getElementById("hide-show-button");
+
+    let isInView = true;
+    hideShowButton.addEventListener("click", () => {
+      const controlPanel = document.getElementById("control-panel-for-scroll");
+      const twoarrows = document.getElementById("twoarrows");
       if (isInView) {
-        controlpanel.style.right = "-250px";
-        arrow.style.transform = 'rotate(180deg)';
+        controlPanel.style.right = "-250px";
+        twoarrows.style.transform = "rotate(180deg)";
         isInView = false;
-      }
-      else {
-        controlpanel.style.right = "20px";
-        arrow.style.transform = 'rotate(0deg)';
+      } else {
+        controlPanel.style.right = "20px";
+        twoarrows.style.transform = "rotate(0deg)";
         isInView = true;
       }
-    })
+    });
 
-    startStopButton.addEventListener('click', async () => {
-      if (!isScrolling) {
-        startStopButton.textContent = "Pause Scrolling";
-        isScrolling = true
-        console.log("Scrolling Started")
-        const allDataFromSync = await getDataFromSync();
-        const scrollStep = allDataFromSync.scrollPixels;
-        const interval = allDataFromSync.intervalTime;
-        const classNameOfCurrentTab = await getCurrentTabsClassName()
-        startScrollingWithClassNameScrollStepInterval(classNameOfCurrentTab, scrollStep, interval);
-      }
-      else {
-        startStopButton.textContent = "Resume Scrolling";
-        isScrolling = false
-        if (scrollingIntervalId) {
-          clearInterval(scrollingIntervalId); // Clear the interval to stop scrolling
-          scrollingIntervalId = null; // Reset the interval ID
-          console.log("Scrolling stopped.");
-        }
-        else {
-          console.log("Scrolling was not started yet.")
-        }
-      }
-    })
+    document.getElementById("start-btn").addEventListener("click", async () => {
+      await startScrolling();
+    });
+
+    document.getElementById("stop-btn").addEventListener("click", async () => {
+      await stopScrolling();
+    });
   }
 }
 
-document.addEventListener('visibilitychange', onTabVisible);
-if (!document.hidden) {
-  onTabVisible();
+async function onStartFunction() {
+  const data = await getDataFromSync(); // Get the current data from storage
+  const isScrolling = data.isScrolling;
+
+  // Update the info message based on the scrolling state from storage
+  const infoElement = document.getElementById("info-message");
+  infoElement.innerText = `Scroll : ${isScrolling}`;
+  infoElement.style.opacity = "100";
+
+  if (isScrolling) {
+    // console.log("Starting scrolling based on stored state...");
+    await startScrolling(); // Start scrolling if true
+  } else {
+    // console.log("Scrolling is not active; no action taken.");
+  }
 }
 
+async function startScrolling() {
+  // console.log("Attempting to start scrolling...");
+  if (scrollingIntervalId === null) {
+    await updateScrollingStateInStorage(true);
+    // console.log("Scrolling Started");
 
-// Listen for messages from the background script
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-  if (message.action === "scrollFrame") {
-    await scrollStartLogic()
+    const { scrollPixels, intervalTime, isScrolling } = await getDataFromSync();
+    const classNameOfCurrentTab = await getCurrentTabsClassName();
+
+    // console.log(scrollPixels, intervalTime, classNameOfCurrentTab);
+
+    scrollingIntervalId = startScrollingWithClassNameScrollStepInterval(
+      classNameOfCurrentTab,
+      scrollPixels,
+      intervalTime
+    );
+    // console.log("Scrolling Interval ID:", scrollingIntervalId);
+
+    // Update the info message to show scrolling status
+    const infoElement = document.getElementById("info-message");
+    infoElement.innerText = `Scroll : ${isScrolling}`;
+    infoElement.style.opacity = "100";
+  } else {
+    // console.log("Scrolling already started");
   }
-  else if (message.action === "stopScrolling") {
-    await scrollStopLogic();
+}
+
+async function stopScrolling() {
+  // console.log("Attempting to stop scrolling...");
+  if (scrollingIntervalId !== null) {
+    // console.log("Stopping Scroll Interval ID:", scrollingIntervalId);
+    clearInterval(scrollingIntervalId);
+    scrollingIntervalId = null;
+
+    await updateScrollingStateInStorage(false);
+    // console.log("Scrolling Stopped");
+
+    const { isScrolling } = await getDataFromSync();
+    // Update the info message to show scrolling status
+    const infoElement = document.getElementById("info-message");
+    infoElement.innerText = `Scroll: ${isScrolling}`;
+    infoElement.style.opacity = "100";
+  } else {
+    // console.log("Scrolling not started");
   }
-  else if (message.action === "injectCode") {
-    isCodeInjected = true
-  }
-  else if (message.action === "injectCode") {
-    isCodeInjected = true
+}
+
+// Add event listeners for visibility changes
+document.addEventListener("visibilitychange", async () => {
+  await onTabVisible();
+  await onStartFunction(); // Check scrolling state whenever visibility changes
+});
+// Initial script execution
+onTabVisible(); // Check visibility on load
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "startScrolling") {
+    // Call your scrolling function here
+    startScrolling();
   }
 });

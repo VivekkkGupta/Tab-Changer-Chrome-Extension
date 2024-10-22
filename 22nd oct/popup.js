@@ -1,26 +1,23 @@
 document.getElementById("loadTabs").addEventListener("click", () => {
+  // Send a message to load the saved tabs
   chrome.runtime.sendMessage({ action: "loadTabs" });
+
+  // Hide the info div after clicking "Open Saved Tabs"
+  document.getElementById("infoDiv").style.display = "none";
 });
 
-// document.getElementById("injectCode").addEventListener("click", () => {
-//   chrome.runtime.sendMessage({ action: "injectCode" });
-// });
+document.getElementById("addLink").addEventListener("click", () => {
+  // Navigate to the options page where the user can add links
+  chrome.runtime.openOptionsPage();
 
-// document.getElementById("SwitchTab").addEventListener("click", () => {
-//   chrome.runtime.sendMessage({ action: "switchTab" });
-// });
+  // Show the info div with the instruction
+  const infoDiv = document.getElementById("infoDiv");
+  infoDiv.innerText =
+    "Please click on 'Open Saved Tabs' to reload after adding links.";
+  infoDiv.style.display = "block";
 
-// document.getElementById("startScroll").addEventListener("click", () => {
-//   // Send a message to the active tab to start scrolling
-//   chrome.runtime.sendMessage({ action: "start" });
-// });
-
-// document.getElementById("stopScroll").addEventListener("click", () => {
-//   // Send a message to the active tab to stop scrolling
-//   chrome.runtime.sendMessage({ action: "stop" });
-// });
-
-// document.getElementById("Optionspage").addEventListener("click", () => {
-//   // Navigate to the options page
-//   chrome.runtime.openOptionsPage();
-// });
+  // Automatically hide the info div after a certain period (e.g., 5 seconds)
+  setTimeout(() => {
+    infoDiv.style.display = "none";
+  }, 5000);
+});

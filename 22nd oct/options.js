@@ -6,15 +6,20 @@ function saveOptions() {
     parseInt(document.getElementById("scrollPixels").value) || 550; // Default value
   const intervalTime =
     parseInt(document.getElementById("intervalTime").value) || 2000; // Default value
+  const isScrolling = document.getElementById("isScrolling").checked;
+  const isInView = document.getElementById("IsInView").checked;
 
   chrome.storage.sync.set(
     {
       scrollPixels: scrollPixels,
       intervalTime: intervalTime,
       links: links,
+      isScrolling: isScrolling,
+      isInView: isInView,
     },
     () => {
       alert("Settings saved and synced!");
+      displayJsonData(); // Display the updated JSON data
     }
   );
   chrome.runtime.sendMessage({ action: "loadTabs" });
@@ -23,26 +28,61 @@ function saveOptions() {
 // Function to restore options from chrome.storage.sync
 function restoreOptions() {
   chrome.storage.sync.get(
-    ["scrollPixels", "intervalTime", "links"],
+    ["scrollPixels", "intervalTime", "links", "isScrolling", "isInView"],
     (result) => {
       console.log("Restored values:", result); // Log the retrieved values
 
       // Safely set the scrollPixels value
       const scrollPixelsValue = parseInt(result.scrollPixels);
-      document.getElementById("scrollPixels").value =
+      const scrollPixels =
         !isNaN(scrollPixelsValue) && scrollPixelsValue > 0
           ? scrollPixelsValue
           : 550; // Default to 550
+      document.getElementById("scrollPixels").value = scrollPixels;
 
       // Safely set the intervalTime value
       const intervalTimeValue = parseInt(result.intervalTime);
-      document.getElementById("intervalTime").value =
+      const intervalTime =
         !isNaN(intervalTimeValue) && intervalTimeValue > 0
           ? intervalTimeValue
           : 2000; // Default to 2000
+      document.getElementById("intervalTime").value = intervalTime;
 
-      links = Array.isArray(result.links) ? result.links : []; // Ensure links is an array
+      // Set the isScrolling checkbox
+      const isScrolling =
+        result.isScrolling !== undefined ? result.isScrolling : false; // Default to false
+      document.getElementById("isScrolling").checked = isScrolling;
+
+      // Set the isInView checkbox
+      const isInView = result.isInView !== undefined ? result.isInView : true; // Default to true
+      document.getElementById("IsInView").checked = isInView;
+
+      // Ensure links is an array
+      links = Array.isArray(result.links) ? result.links : [];
+
+      // If no data exists, save the default values to chrome.storage.sync
+      if (
+        result.scrollPixels === undefined ||
+        result.intervalTime === undefined ||
+        result.isScrolling === undefined ||
+        result.isInView === undefined
+      ) {
+        chrome.storage.sync.set(
+          {
+            scrollPixels: scrollPixels,
+            intervalTime: intervalTime,
+            isScrolling: isScrolling,
+            isInView: isInView,
+            links: links,
+          },
+          () => {
+            console.log("Default settings saved for the first start.");
+          }
+        );
+      }
+
       displayLinks();
+      displayJsonData(); // Display the restored JSON data
     }
   );
 }
@@ -86,6 +126,7 @@ function addLink() {
     // Save the updated links array to Chrome's sync storage
     chrome.storage.sync.set({ links: links }, () => {
       console.log("Links saved to sync storage");
+      displayJsonData(); // Display the updated JSON data
     });
   }
 }
@@ -98,10 +139,26 @@ function removeLink(index) {
   // Save the updated links array to Chrome's sync storage
   chrome.storage.sync.set({ links: links }, () => {
     console.log("Links updated in sync storage");
+    displayJsonData(); // Display the updated JSON data
   });
+}
+
+// Function to display the stored data in JSON format
+function displayJsonData() {
+  chrome.storage.sync.get(
+    ["scrollPixels", "intervalTime", "links", "isScrolling", "isInView"],
+    (result) => {
+      const jsonDisplay = document.getElementById("jsonDisplay");
+      jsonDisplay.innerText = JSON.stringify(result, null, 2); // Prettify the JSON
+      jsonDisplay.style.display = "block";
+    }
+  );
 }
 
 // Event listeners
 document.getElementById("addLink").addEventListener("click", addLink);
 document.getElementById("saveOptions").addEventListener("click", saveOptions);
+document
+  .getElementById("showDataButton")
+  .addEventListener("click", displayJsonData);
 document.addEventListener("DOMContentLoaded", restoreOptions);

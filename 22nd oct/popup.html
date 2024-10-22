@@ -24,9 +24,9 @@
       button {
         padding: 5px 10px;
         cursor: pointer;
-        border: none; /* Remove default border */
-        color: white; /* Text color */
-        font-weight: bold; /* Bold text */
+        border: none;
+        color: white;
+        font-weight: bold;
       }
       #loadTabs {
         background-color: black;
@@ -37,42 +37,33 @@
       #loadTabs:hover {
         background-color: rgb(62, 62, 62);
       }
-      #startScroll {
-        background-color: #4caf50; /* Green */
+      #addLink {
+        background-color: #4caf50;
+        width: 100%;
+        height: 30px;
+        border-radius: 5px;
+        margin-top: 10px;
       }
-      #startScroll:hover {
-        background-color: #45a049; /* Darker green */
+      #addLink:hover {
+        background-color: #45a049;
       }
-      #stopScroll {
-        background-color: #f44336; /* Red */
-      }
-      #stopScroll:hover {
-        background-color: #d32f2f; /* Darker red */
-      }
-      #Optionspage {
-        background-color: #2196f3; /* Blue */
-      }
-      #Optionspage:hover {
-        background-color: #1976d2; /* Darker blue */
-      }
-      #SwitchTab {
-        background-color: #2196f3; /* Blue */
+      #infoDiv {
+        margin-top: 10px;
+        display: none;
+        color: red;
+        font-size: 12px;
+        text-align: center;
       }
     </style>
   </head>
   <body>
     <h3>Tab Scroll & Rotate</h3>
     <button id="loadTabs">Open Saved Tabs</button>
-    <!-- <button id="injectCode">Inject Control Panel</button> -->
-    <!-- <br /> -->
-    <!-- <button id="startScroll">Start Scrolling</button>
-    <br />
-    <button id="stopScroll">Stop Scrolling</button>
-    <br />
-    <br />
-    <button id="Optionspage">Change Options</button>
-    <br />
-    <button id="SwitchTab">Switch Tab</button> -->
+    <button id="addLink">Add Links</button>
+
+    <div id="infoDiv">
+      Please click on 'Open Saved Tabs' to reload after adding links.
+    </div>
 
     <script src="popup.js"></script>
   </body>
