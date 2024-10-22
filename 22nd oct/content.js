@@ -1,9 +1,8 @@
 // Global variables to track scrolling state and interval ID
 let scrollingIntervalId = null;
-let isCodeInjected = false;
 
-let inactivityTimer; // Timer variable
-const inactivityDelay = 5000; // 5 seconds of inactivity
+let hideTimeout; // Timer variable
+let hidetimeinseconds = 5 * 1000;
 
 // Function to scroll the frame or window based on stored settings
 function scrollFrame(frameClass, scrollStep) {
@@ -68,9 +67,14 @@ async function updateScrollingStateInStorage(state) {
   await chrome.storage.sync.set({ isScrolling: state });
 }
 
-// Function to update the visibility state in storage
+// Helper function to update visibility state in chrome.storage.sync
 async function updateVisibilityStateInStorage(state) {
-  await chrome.storage.sync.set({ isInView: state });
+  return new Promise((resolve) => {
+    chrome.storage.sync.set({ isInView: state }, () => {
+      console.log("Updated visibility state in storage to:", state);
+      resolve();
+    });
+  });
 }
 
 // Function to get data from chrome.storage.sync
@@ -433,19 +437,82 @@ async function controlPanelScript() {
 
     const hideShowButton = document.getElementById("hide-show-button");
 
-    let isInView = true;
-    hideShowButton.addEventListener("click", () => {
-      const controlPanel = document.getElementById("control-panel-for-scroll");
+    const { isInView } = await getDataFromSync();
+    // Track mouse events to determine if the panel should hide
+    let isMouseOverPanel = false;
+    const controlPanel = document.getElementById("control-panel-for-scroll");
+
+    // Add mouse enter and leave event listeners
+    controlPanel.addEventListener("mouseenter", () => {
+      isMouseOverPanel = true;
+    });
+
+    controlPanel.addEventListener("mouseleave", () => {
+      isMouseOverPanel = false;
+    });
+
+    // Check if the mouse is over the control panel during scrolling
+    document.addEventListener("mousemove", async (event) => {
+      // Only check for hiding if the panel is currently visible
+      chrome.storage.sync.get("isInView", async (result) => {
+        if (result.isInView) {
+          if (!isMouseOverPanel) {
+            const controlPanelRect = controlPanel.getBoundingClientRect();
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+
+            // If the mouse is outside the control panel, hide it
+            if (
+              mouseX < controlPanelRect.left ||
+              mouseX > controlPanelRect.right ||
+              mouseY < controlPanelRect.top ||
+              mouseY > controlPanelRect.bottom
+            ) {
+              controlPanel.style.right = "-250px";
+              twoarrows.style.transform = "rotate(180deg)";
+              // console.log("Hiding the control panel due to mouse movement");
+              await updateVisibilityStateInStorage(false);
+            }
+          }
+        }
+      });
+    });
+
+    // Initial setup: Retrieve the visibility state from storage and set the panel's position
+    chrome.storage.sync.get("isInView", (result) => {
       const twoarrows = document.getElementById("twoarrows");
-      if (isInView) {
-        controlPanel.style.right = "-250px";
-        twoarrows.style.transform = "rotate(180deg)";
-        isInView = false;
-      } else {
+
+      if (result.isInView) {
         controlPanel.style.right = "20px";
         twoarrows.style.transform = "rotate(0deg)";
-        isInView = true;
+      } else {
+        controlPanel.style.right = "-250px";
+        twoarrows.style.transform = "rotate(180deg)";
       }
+    });
+
+    // Event listener for the hide/show button
+    hideShowButton.addEventListener("click", async () => {
+      chrome.storage.sync.get("isInView", async (result) => {
+        const isInView = result.isInView;
+
+        if (isInView) {
+          // Hide the control panel only if the mouse is not over it
+          if (!isMouseOverPanel) {
+            controlPanel.style.right = "-250px";
+            twoarrows.style.transform = "rotate(180deg)";
+            console.log("Hiding the control panel");
+            await updateVisibilityStateInStorage(false);
+          }
+        } else {
+          // Show the control panel
+          controlPanel.style.right = "20px";
+          twoarrows.style.transform = "rotate(0deg)";
+          console.log("Showing the control panel");
+          await updateVisibilityStateInStorage(true);
+          await hidePanelAfterDelay();
+        }
+      });
     });
 
     document.getElementById("start-btn").addEventListener("click", async () => {
@@ -455,6 +522,22 @@ async function controlPanelScript() {
     document.getElementById("stop-btn").addEventListener("click", async () => {
       await stopScrolling();
     });
+  }
+}
+
+async function hidePanelAfterDelay() {
+  // Clear any existing timeout if the button is clicked before 5 seconds
+  clearTimeout(hideTimeout);
+  const { isInView } = await getDataFromSync();
+  const controlPanel = document.getElementById("control-panel-for-scroll");
+  const twoarrows = document.getElementById("twoarrows");
+
+  if (isInView) {
+    hideTimeout = setTimeout(async () => {
+      controlPanel.style.right = "-250px";
+      twoarrows.style.transform = "rotate(180deg)";
+      await updateVisibilityStateInStorage(false);
+    }, hidetimeinseconds); // 5 seconds delay
   }
 }
 
