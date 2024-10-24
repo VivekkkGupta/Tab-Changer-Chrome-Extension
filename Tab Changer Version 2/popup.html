@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Auto Scroll Extension</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        width: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+      .input-group {
+        margin-bottom: 10px;
+      }
+      .input-group label {
+        display: block;
+      }
+      .input-group input {
+        width: 100%;
+        padding: 5px;
+      }
+      button {
+        padding: 5px 10px;
+        cursor: pointer;
+        border: none;
+        color: white;
+        font-weight: bold;
+      }
+      #loadTabs {
+        background-color: black;
+        width: 100%;
+        height: 30px;
+        border-radius: 5px;
+      }
+      #loadTabs:hover {
+        background-color: rgb(62, 62, 62);
+      }
+      #addLink {
+        background-color: #4caf50;
+        width: 100%;
+        height: 30px;
+        border-radius: 5px;
+        margin-top: 10px;
+      }
+      #addLink:hover {
+        background-color: #45a049;
+      }
+      #infoDiv {
+        margin-top: 10px;
+        display: none;
+        color: red;
+        font-size: 12px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Tab Scroll & Rotate</h3>
+    <button id="loadTabs">Open Saved Tabs</button>
+    <button id="addLink">Add Links</button>
+
+    <div id="infoDiv">
+      Please click on 'Open Saved Tabs' to reload after adding links.
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
